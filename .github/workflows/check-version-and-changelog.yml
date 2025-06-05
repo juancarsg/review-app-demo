@@ -1,0 +1,72 @@
+name: Check CHANGELOG.md and POM version
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  check-changes:
+    name: Verify changes in CHANGELOG.md and version in pom.xml
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout PR branch
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Get differences with main
+        run: |
+          git fetch origin main
+          git diff --name-only origin/main > changed_files.txt
+
+      - name: Verify that CHANGELOG.md was modified
+        run: |
+          if ! grep -q "CHANGELOG.md" changed_files.txt; then
+            echo "❌ CHANGELOG.md was not modified."
+            exit 1
+          else
+            echo "✅ CHANGELOG.md was modified."
+          fi
+
+      - name: Install xmllint
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libxml2-utils
+
+      - name: Extract new version (from current branch)
+        id: pr_version
+        run: |
+          PR_VERSION=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='version']/text()" pom.xml)
+          echo "New version: $PR_VERSION"
+          echo "version=$PR_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Extract main version (from main branch)
+        run: |
+          git fetch origin main
+          git show origin/main:pom.xml > pom_main.xml
+          MAIN_VERSION=$(xmllint --xpath "/*[local-name()='project']/*[local-name()='version']/text()" pom_main.xml)
+          echo "Old version: $MAIN_VERSION"
+          echo "MAIN_VERSION=$MAIN_VERSION" >> $GITHUB_ENV
+
+      - name: Compare versions
+        run: |
+          if [ -z "${{ steps.pr_version.outputs.version }}" ] || [ -z "$MAIN_VERSION" ]; then
+            echo "❌ Could not extract one or both versions"
+            exit 1
+          fi
+
+          echo "New version: ${{ steps.pr_version.outputs.version }} vs Old version: $MAIN_VERSION"
+
+          PR_VERSION_CLEAN="${{ steps.pr_version.outputs.version }}"
+          PR_VERSION_CLEAN=${PR_VERSION_CLEAN%-*}
+
+          MAIN_VERSION_CLEAN=$MAIN_VERSION
+          MAIN_VERSION_CLEAN=${MAIN_VERSION_CLEAN%-*}
+
+          if [ "$(printf '%s\n' "$PR_VERSION_CLEAN" "$MAIN_VERSION_CLEAN" | sort -V | tail -n 1)" = "$PR_VERSION_CLEAN" ] && [ "$PR_VERSION_CLEAN" != "$MAIN_VERSION_CLEAN" ]; then
+            echo "✅ The version has been incremented (from $MAIN_VERSION to ${{ steps.pr_version.outputs.version }})."
+          else
+            echo "❌ The version in pom.xml (${{ steps.pr_version.outputs.version }}) must be greater than the main version ($MAIN_VERSION)."
+            exit 1
+          fi
