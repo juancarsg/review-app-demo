@@ -10,8 +10,11 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/health")
 public class HealthController {
 
-    @Autowired
     private JdbcTemplate jdbcTemplate;
+
+    public HealthController(JdbcTemplate jdbcTemplate) {
+        this.jdbcTemplate = jdbcTemplate;
+    }
 
     @GetMapping("/db")
     public String checkDbConnection() {
@@ -23,6 +26,5 @@ public class HealthController {
         }
     }
 
-    //Test signature 6
 }
 
