@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [0.3.0] - 2025-06-10
+### Added
+- Containerisation of Spring Boot application.
+- Bash script to deploy on docker (database + app).
+
+### Changed
+- README.md file with new set up instructions.
+
 ## [0.2.0] - 2025-06-09
 ### Added
 - RESTful API for five entities (Category, Schedule, Commerce, Review, User).
